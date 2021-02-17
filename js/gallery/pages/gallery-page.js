@@ -1,11 +1,7 @@
-import * as THREE from 'https://unpkg.com/three/build/three.module.js';
-import { OrbitControls } from '../render/OrbitControls.js';
-
 const VERSION_JAVA   = '1.17'
 const BRANCH_JAVA    = 'Jappa-1.17'
 const BRANCH_BEDROCK = 'Jappa-1.16.200'
 window.ERROR_IMG     = './image/gallery/not-found.png'
-window.ERROR_TEXTURE = './image/gallery/not-found-high-res.png'
 
 const TYPE_JAVA      = 'java'
 const TYPE_BEDROCK   = 'bedrock'
@@ -40,6 +36,20 @@ window.getJson = async url => {
 	}
 }
 
+window.getJSON = function(url, callback) {
+	var xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.responseType = 'json';
+
+	xhr.onload = function () {
+		var status = xhr.status;
+		if (status == 200) callback(null, xhr.response);
+		else callback(status);
+	};
+
+	xhr.send();
+};
+
 export default {
 	name: 'gallery-page',
 	data() {
@@ -52,10 +62,11 @@ export default {
 			currentBranch: '',
 			searchString: '',
 
-			cube: null,
 			renderer: null,
 			scene: null,
-			camera: null
+			camera: null,
+			ambientLight: null,
+			directionalLight: null
 		}
 	},
 	watch:{
@@ -70,7 +81,7 @@ export default {
 			<div class="modal-content">
 				<div class="res-grid-2">
 					<img class="center" width="256" height="256" ref="modal_img" onerror="this.src = ERROR_IMG">
-					<div class="center" ref="modal_render" id="render-model"></div>
+					<div class="center" ref="modal_render" id="wrapper"></div>
 				</div>
 				<h1 ref="modal_h1"></h1>
 				<p ref="modal_p"></p>
@@ -87,7 +98,7 @@ export default {
 			<div v-for="item in imageArray" :key="item.path" class="gallery-item">
 				<img :src="item.path" loading="lazy" :alt="item.title" onerror="this.src = ERROR_IMG">
 				<a :href="item.path" download class="fas fa-download"></a>
-				<i class="fas fa-expand" v-on:click="fullscreen(item); init(item.render); animate()"></i>
+				<i class="fas fa-expand" v-on:click="fullscreen(item); render(item.render)"></i>
 				<div class="info">
 					<p>{{ item.title }}</p>
 					<p class="secondary">{{ item.artist }}</p>
@@ -189,74 +200,6 @@ export default {
 		showResults() {
 			if (this.$route.params.section != 'all') this.$router.push('/' + this.$route.params.version + '/all')
 		},
-		init(render) {
-			console.log(render);
-
-
-			if (render.type != undefined) {
-				let container = document.getElementById('render-model');
-
-				// camera settings:
-				this.camera = new THREE.PerspectiveCamera(30, 1, 1, 128);
-				this.camera.position.z = 64;
-
-				// scene settings:
-				this.scene = new THREE.Scene();
-				this.scene.rotation.y = 135 * Math.PI / 180;
-				this.scene.rotation.x = 0.625;
-
-				// ambiant light settings:
-				this.ambiantLight = new THREE.AmbientLight(0xffffff, 0.75);
-				this.ambiantLight.position.set(0,0,0);
-				this.scene.add(this.ambiantLight);
-
-				// directional light settings:
-				this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.25);
-				this.directionalLight.position.set(64,64,-64);
-				this.scene.add(this.directionalLight);
-
-				this.renderer = new THREE.WebGLRenderer({
-					antialias: true,
-					preservedDrawingBuffer: true
-				});
-				this.renderer.setClearColor(0x17191D);
-				this.renderer.setPixelRatio(container.devicePixelRatio);
-				this.renderer.setSize(256, 256);
-				//this.renderer.outputEncoding = THREE.sRGBEncoding;
-
-				let path = 'https://raw.githubusercontent.com/Compliance-Resource-Pack/' + this.currentRepository + '/' + this.currentBranch + '/';
-				if (this.currentRepository.includes('Java')) path += 'assets/';
-				
-				if (render.type == 'full-block') {
-					let texture  = new THREE.TextureLoader().load(path+render.texture.all);
-					let geometry = new THREE.BoxGeometry(16,16,16);
-					let material = new THREE.MeshBasicMaterial({ map: texture });
-					this.mesh = new THREE.Mesh(geometry, material);
-				}
-				else {
-					let texture  = new THREE.TextureLoader().load(window.ERROR_TEXTURE);
-					let geometry = new THREE.BoxGeometry(16,16,16);
-					let material = new THREE.MeshBasicMaterial({ map: texture });
-					this.mesh = new THREE.Mesh(geometry, material);
-				}
-
-				this.scene.add(this.mesh);
-
-				this.renderer.render(this.scene, this.camera);
-				container.appendChild(this.renderer.domElement);
-
-				this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-				this.controls.addEventListener('change', render);
-				this.controls.minDistance = 16;
-				this.controls.maxDistance = 64;
-				this.controls.update();
-			}
-			
-		},
-		animate() {
-			requestAnimationFrame(this.animate);
-			this.renderer.render(this.scene, this.camera);
-		},
 		async fullscreen(item) {
 			this.$refs.modal_img.src       = item.path
 			this.$refs.modal_h1.innerHTML  = item.title
@@ -264,9 +207,36 @@ export default {
 			this.$refs.modal.style.display = 'block'
 		},
 		closeModal() {
-			let container = document.getElementById('render-model');
+			let container = document.getElementById('wrapper');
 			container.innerHTML = '';
 			this.$refs.modal.style.display = 'none';
+		},
+		async render(render) {
+			var container = document.getElementById('wrapper');
+			var viewer    = new ModelViewer(container);
+
+			window.addEventListener('resize', viewer.resize);
+
+			console.log(viewer);
+			console.log(JSON.stringify(render));
+
+			var json, textures
+			var model = new JsonModel('demo', jsonDEMO, texturesDEMO);
+			
+			if (render.type != undefined) {
+				let path = 'https://raw.githubusercontent.com/Compliance-Resource-Pack/' + this.currentRepository + '/' + this.currentBranch + '/';
+				if (this.currentRepository.includes('Java')) path += 'assets/';
+
+				for (var i = 0; i < render.textures.length; i++) {
+					render.textures[i].texture = path + render.textures[i].texture;
+				}
+
+				json  = await getJson('https://raw.githubusercontent.com/Compliance-Resource-Pack/JSON/main/render/'+ render.type +'.json');
+				model = new JsonModel(render.name, JSON.stringify(json), render.textures);
+			}
+			
+      viewer.load(model);
+      viewer.resize();
 		}
 	},
 	mounted() {

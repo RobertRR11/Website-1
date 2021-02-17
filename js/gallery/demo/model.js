@@ -1,0 +1,2 @@
+var jsonDEMO =
+'{"textures":{"particle":"blocks/cake_side","bottom":"blocks/cake_bottom","top":"blocks/cake_top","side":"blocks/cake_side"},"elements":[{"from":[1,0,1],"to":[15,8,15],"faces":{"down":{"texture":"#bottom","uv":[1,1,15,15],"cullface":"down"},"up":{"texture":"#top","uv":[1,1,15,15]},"north":{"texture":"#side","uv":[1,8,15,16]},"south":{"texture":"#side","uv":[1,8,15,16]},"west":{"texture":"#side","uv":[1,8,15,16]},"east":{"texture":"#side","uv":[1,8,15,16]}}}]}'
