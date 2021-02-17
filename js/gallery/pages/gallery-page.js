@@ -21,7 +21,10 @@ window.data = {
 window.cache = {}
 
 window.capitalize = string => {
-	return string.charAt(0).toUpperCase() + string.slice(1)
+	if (string == 'gui') return 'GUI';
+	if (string == 'ui') return 'UI';
+	if (string == 'mob_effect') return 'Mob Effect';
+	return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 window.getJson = async url => {
@@ -80,7 +83,7 @@ export default {
 			<span class="close">×</span>
 			<div class="modal-content">
 				<div class="res-grid-2">
-					<img class="center" width="256" height="256" ref="modal_img" onerror="this.src = ERROR_IMG">
+					<img class="center modal-img" width="512" ref="modal_img" onerror="this.src = ERROR_IMG">
 					<div class="center" ref="modal_render" id="wrapper"></div>
 				</div>
 				<h1 ref="modal_h1"></h1>
